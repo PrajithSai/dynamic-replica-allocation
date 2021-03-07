@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Header, Label, Button } from 'semantic-ui-react'
 import Select from 'react-select'
-// import { filter, findIndex, cloneDeep } from 'lodash'
+import { filter, findIndex, cloneDeep } from 'lodash'
 import 'semantic-ui-css/semantic.min.css'
 import './App.scss'
 
@@ -35,11 +35,18 @@ const initialMHCounters = {
   "MH12": 0,
 }
 
+const initialMSSQueues = {
+  "MSS1": [],
+  "MSS2": [],
+  "MSS3": [],
+  "MSS4": [],
+}
+
 function App() {
   const [mode, setMode] = useState({ label: "", value: "" })
   const [tokenRequestSource, setTokenRequestSource] = useState({ label: "", value: "" })
   const [mhCounters, setMHCounter] = useState(initialMHCounters)
-  const [localQueues, updateLocalQueues] = useState([])
+  const [localQueues, updateLocalQueues] = useState(initialMSSQueues)
 
   const getModeOptions = () => {
     return [{
@@ -64,18 +71,60 @@ function App() {
   }
 
   const submitRequestToMSS = () => {
+    const mss = mhParents[tokenRequestSource.value]
+    const mhCountersClone = {...mhCounters}
     const h_count = mhCounters[tokenRequestSource.value] + 1;
     const h = tokenRequestSource.value;
-    const queue = [...localQueues]
-    const request = { h, h_count } 
-    queue.push(request)
-    broadcastRequestToAllMSS(request)
+    const queue = cloneDeep(localQueues)
+    const request = { h, h_count, id: Date.now(), isDeliverable: false, mss, priority: null }
+    queue[mss].push(request)
+    mhCountersClone[h] = h_count
+    setMHCounter(mhCountersClone)
+    updateLocalQueues(queue)
+    // console.log("After submitting request: ", {mhCounters: mhCountersClone, localQueues: queue})
+    getReqPriorityFromAllMSS(request, queue)
+    setTokenRequestSource({ label: "", value: "" })
   }
 
-  const broadcastRequestToAllMSS = (request) => {
-    
+  const getReqPriorityFromAllMSS = (request, q) => {
+    const queue = cloneDeep(q)
+    // console.log({ localQueues })
+    const allMSSExceptSource = Object.keys(initialMSSQueues).filter(mss => mss !== request.mss)
+    const highestHCounts = []
+    for (let i = 0; i < allMSSExceptSource.length; i += 1) {
+      const currentMss = allMSSExceptSource[i]
+      let maxPriority = Math.max(...queue[currentMss].map(req => req.priority || 0))
+      // console.log({ maxPriority })
+      maxPriority = maxPriority > 0 ? maxPriority : 0 
+      queue[currentMss].push({ ...request, priority: maxPriority + 1 })
+      highestHCounts.push(maxPriority + 1)
+      updateLocalQueues(queue)
+    }
+    assignGlobalPriorityToReq(request, highestHCounts, queue)
   }
 
+  const assignGlobalPriorityToReq = (request, hCounts, q) => {
+    const queue = cloneDeep(q)
+    const maxHCount = Math.max(...hCounts)
+    const index = findIndex(queue[request.mss], { id: request.id })
+    queue[request.mss][index].priority = maxHCount
+    queue[request.mss][index].isDeliverable = true
+    updateLocalQueues(queue)
+    broadcastPriorityToAllMSS(request, maxHCount, queue)
+  } 
+
+  const broadcastPriorityToAllMSS = (request, maxHCount, q) => {
+    const queue = cloneDeep(q)
+    const allMSSExceptSource = Object.keys(initialMSSQueues).filter(mss => mss !== request.mss)
+    for (let i = 0; i < allMSSExceptSource.length; i += 1) {
+      const currentMss = allMSSExceptSource[i]
+      const index = findIndex(queue[currentMss], { id: request.id })
+      queue[currentMss][index].priority = maxHCount
+      queue[currentMss][index].isDeliverable = true
+      updateLocalQueues(queue)
+    }
+  }
+  console.log({ localQueues, mhCounters })
   return (
     <div className="App">
       <div className="App-div" style={{ margin: '15px', padding: '15px', display: 'flex' }}>
@@ -94,7 +143,8 @@ function App() {
               <Button secondary onClick={submitRequestToMSS}>Submit Request</Button>
             </div>
         </div>
-        <div id="treeWrapper" style={{ width: '70%', height: '35em' }}>
+        {mode.value === "REPLICATION" && <div>
+          <div id="treeWrapper" style={{ width: '70%', height: '35em' }}>
           <div className="ring">
             <div className="mss-1-container">
               <div className="nodes">
@@ -138,6 +188,7 @@ function App() {
             </div>
           </div>
         </div>
+        </div>}
       </div>
     </div>
   );
