@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Header, Label, Button, Table, } from 'semantic-ui-react'
 import Select from 'react-select'
 import { filter, findIndex, cloneDeep } from 'lodash'
+import ProxyBased from './ProxyBased'
 import 'semantic-ui-css/semantic.min.css'
 import './App.scss'
 
@@ -255,6 +256,9 @@ function App() {
             ))}
           </div>
         </div>}
+        {mode.value === "PROXY" && <div>
+              <ProxyBased />
+          </div>}
       </div>
     </div>
   );

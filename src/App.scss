@@ -55,3 +55,38 @@
   top: 45%;
   left: 48%;
 }
+.proxy-1 > .mss-1-container {
+  position: absolute;
+  top: 20%;
+  left: 13%;
+}
+.proxy-1 > .mss-2-container {
+  position: absolute;
+  top: 20%;
+  left: 51%;
+}
+.proxy-2 > .mss-3-container {
+  position: absolute;
+  top: 20%;
+  left: 33%;
+}
+.proxy-1 {
+  height: 16em;
+  border: 1px solid;
+  position: relative;
+  z-index: 10;
+  top: 8%;
+  width: 80%;
+  left: 10%;
+  border-radius: 50%;
+}
+.proxy-2 {
+  height: 16em;
+  border: 1px solid;
+  position: relative;
+  z-index: 10;
+  top: 10%;
+  width: 80%;
+  left: 10%;
+  border-radius: 50%;
+}
