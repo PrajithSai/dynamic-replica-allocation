@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { Header, Label, Button, Table, } from 'semantic-ui-react'
 import Select from 'react-select'
 import { filter, findIndex, cloneDeep } from 'lodash'
-import ProxyBased from './ProxyBased'
+// import ProxyBased from './ProxyBased'
 import 'semantic-ui-css/semantic.min.css'
 import './App.scss'
 
-const TIMER = 0;
+const TIMER = 3000;
 
-const mhParents = {
+const mhMSSParents = {
   "MH1": "MSS1",
   "MH2": "MSS1",
   "MH3": "MSS1",
@@ -18,6 +18,24 @@ const mhParents = {
   "MH7": "MSS3",
   "MH8": "MSS3",
   "MH9": "MSS3",
+}
+
+const mhProxyParents = {
+  "MH1": "Proxy 1",
+  "MH2": "Proxy 1",
+  "MH3": "Proxy 1",
+  "MH4": "Proxy 1",
+  "MH5": "Proxy 1",
+  "MH6": "Proxy 1",
+  "MH7": "Proxy 2",
+  "MH8": "Proxy 2",
+  "MH9": "Proxy 2",
+}
+
+const proxiesByMSS = {
+  "MSS1": "Proxy 1",
+  "MSS2": "Proxy 1",
+  "MSS3": "Proxy 2",
 }
 
 const initialMHCounters = {
@@ -44,7 +62,13 @@ function App() {
   const [mhCounters, setMHCounter] = useState(initialMHCounters)
   const [localQueues, updateLocalQueues] = useState(initialMSSQueues)
   const [tokenPosition, setTokenPosition] = useState({ label: "", value: "" })
-
+  const [requestQueue, updateRequestQueue] = useState([])
+  const [proxyGrantQueue, updateProxyGrantQueue] = useState([])
+  const [mhProxyMovementsDict, updateMHProxyMovement] = useState(mhProxyParents)
+  const [mhMSSMovementsDict, updateMHMSSMovement] = useState(mhMSSParents)
+  const [mhToMove, setMHToMove] = useState({ label: "", value: "" })
+  const [mssToMoveTo, setMssToMoveTo] = useState({ label: "", value: "" })
+  
   const getModeOptions = () => {
     return [{
       label: "Proxy-based",
@@ -69,8 +93,14 @@ function App() {
 
   const getAllMSS = () => Object.keys(initialMSSQueues).map(mss => ({ label: mss, value: mss }))
 
+  const getMSSToMoveTo = () => {
+    return [{ label: 'MSS1', value: 'MSS1' },
+    { label: 'MSS2', value: 'MSS2' },
+    { label: 'MSS3', value: 'MSS3' }].filter(mss => mss.value !== mhMSSMovementsDict[mhToMove.value])
+  }
+
   const submitRequestToMSS = () => {
-    const mss = mhParents[tokenRequestSource.value]
+    const mss = mhMSSParents[tokenRequestSource.value]
     const mhCountersClone = {...mhCounters}
     const h_count = mhCounters[tokenRequestSource.value] + 1;
     const h = tokenRequestSource.value;
@@ -158,7 +188,75 @@ function App() {
     }
     updateLocalQueues(queue)
   }
-  // console.log({ localQueues, mhCounters })
+  
+  const submitRequestToProxy = () => {
+    // const mss = mhMSSMovementsDict[tokenRequestSource.value]
+    const proxy = mhProxyMovementsDict[tokenRequestSource.value]
+    const queue = cloneDeep(requestQueue)
+    const request = { h: tokenRequestSource.value, proxy, id: Date.now() }
+    queue.push(request)
+    updateRequestQueue(queue)
+  }
+
+  const getMHsByProxy = () => {
+    const mhsByProxy = {
+      "Proxy 1": [],
+      "Proxy 2": []
+    }
+    Object.entries(mhProxyMovementsDict).map(([key, value] )=> {
+      mhsByProxy[value].push(key)
+    })
+    return mhsByProxy
+  }
+
+  const getNewRequestQueue = () => {
+    const newQueue = requestQueue.map(req => ({ ...req, proxy: mhProxyMovementsDict[req.h] }))
+    return newQueue
+  }
+
+  const giveTokenToProxy = () => {
+    // const mhsByProxy = getMHsByProxy()
+    const updatedRequestQueue = getNewRequestQueue()
+    const allRequestsInProxy = updatedRequestQueue.filter(req => req.proxy === tokenPosition.value)
+    const newRequestQueue = updatedRequestQueue.filter(req => req.proxy !== tokenPosition.value)
+    console.log({ newRequestQueue, allRequestsInProxy })
+    updateRequestQueue(newRequestQueue)
+    updateProxyGrantQueue(allRequestsInProxy)
+    setTimeout(() => {
+      serveRequestsInGrantQueue(allRequestsInProxy)
+    }, TIMER);
+  }
+
+  const serveRequestsInGrantQueue = requests => {
+    if (requests.length === 0) return;
+    const reqClone = cloneDeep(requests)
+    reqClone.shift()
+    updateProxyGrantQueue(reqClone)
+    setTimeout(() => {
+      serveRequestsInGrantQueue(reqClone)
+    }, TIMER);
+  }
+
+  const moveMHToMSS = () => {
+    const mh = mhToMove.value
+    const mss = mssToMoveTo.value
+    const proxy = proxiesByMSS[mssToMoveTo.value];
+    const mssMovement = cloneDeep(mhMSSMovementsDict)
+    const proxyMovement = cloneDeep(mhProxyMovementsDict)
+    mssMovement[mh] = mss
+    proxyMovement[mh] = proxy
+    updateMHProxyMovement(proxyMovement)
+    updateMHMSSMovement(mssMovement)
+  }
+
+  const getMHsByMSS = (mssID) => {
+    const mhs = []
+    Object.entries(mhMSSMovementsDict).map(([mh, mss]) => {
+      if (mss === mssID) mhs.push(mh)
+    })
+    return mhs
+  }
+
   return (
     <div className="App">
       <div className="App-div" style={{ margin: '15px', padding: '15px', display: 'flex' }}>
@@ -185,6 +283,40 @@ function App() {
               </div>
               <div className="select-cache cache-buttons">
                 {tokenPosition.value && <Button secondary onClick={giveTokenToSelectedMSS}>Give Token Access To {tokenPosition.value}</Button>}
+              </div>
+            </div>
+          </>}
+          {mode.value === "PROXY" && <>
+            <div>
+              <div className="select-cache">
+                <label>Select Request Source</label>
+                <Select value={tokenRequestSource} onChange={setTokenRequestSource} options={getAllMHs()} />
+              </div>
+              <div className="select-cache cache-buttons">
+                <Button primary onClick={submitRequestToProxy}>Submit Request</Button>
+              </div>
+            </div>
+            <div>
+              <Header as="h3">Move MH</Header>
+              <div className="select-cache">
+                <label>Select MH</label>
+                <Select value={mhToMove} onChange={setMHToMove} options={getAllMHs()} />
+              </div>
+              <div className="select-cache">
+                <label>Select MSS</label>
+                <Select value={mssToMoveTo} onChange={setMssToMoveTo} options={getMSSToMoveTo()} />
+              </div>
+              <div className="select-cache cache-buttons">
+                <Button primary onClick={moveMHToMSS}>Move</Button>
+              </div>
+            </div>
+            <div>
+              <div className="select-cache">
+                <label>Select Token Location</label>
+                <Select value={tokenPosition} onChange={setTokenPosition} options={[{label: "Proxy 1", value: "Proxy 1"},{label: "Proxy 2", value: "Proxy 2"}]} />
+              </div>
+              <div className="select-cache cache-buttons">
+                {tokenPosition.value && <Button secondary onClick={giveTokenToProxy}>Give Token Access To {tokenPosition.value}</Button>}
               </div>
             </div>
           </>}
@@ -257,7 +389,94 @@ function App() {
           </div>
         </div>}
         {mode.value === "PROXY" && <div>
-              <ProxyBased />
+        <div style={{display: "flex" }}>
+          <div id="treeWrapper" style={{ marginLeft: "15px"}}>
+            <div className="ring">
+              <div className="proxy-1">
+                <Header as="h3" textAlign="center" style={{ marginTop: 15 }}>Proxy 1</Header>
+                <div className="mss-1-container">
+                  <div className="nodes">
+                    <div className="mss"><Label>MSS1</Label></div>
+                    <div>
+                      {getMHsByMSS("MSS1").map(mh => <div key={mh} className="mhs"><Label>{mh}</Label></div>)}
+                    </div>
+                  </div>
+                </div>
+                <div className="mss-2-container">
+                  <div className="nodes">
+                    <div className="mss"><Label>MSS2</Label></div>
+                    <div>
+                      {getMHsByMSS("MSS2").map(mh => <div key={mh} className="mhs"><Label>{mh}</Label></div>)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="proxy-2">
+              <Header as="h3"  textAlign="center" style={{ marginTop: 15 }}>Proxy 2</Header>
+              <div className="mss-3-container">
+                <div className="nodes">
+                  <div className="mss"><Label>MSS3</Label></div>
+                  <div>
+                    {getMHsByMSS("MSS3").map(mh => <div key={mh} className="mhs"><Label>{mh}</Label></div>)}
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+          <div className="local-queues">
+            <>
+              <Header as='h3'>
+                Request Queue
+              </Header>
+                <div style={{ margin: "20px" }}>
+                  <Table celled padded>
+                    <Table.Header>
+                      <Table.Row>
+                        <Table.HeaderCell singleLine>MH</Table.HeaderCell>
+                        <Table.HeaderCell>Proxy</Table.HeaderCell>
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                    {requestQueue.map(req => (
+                        <Table.Row key={req.id}>
+                          <Table.Cell>
+                            {req.h}
+                          </Table.Cell>
+                          <Table.Cell singleLine>{req.proxy}</Table.Cell>
+                        </Table.Row>
+                      ))}
+                    </Table.Body>
+                  </Table>
+                </div>
+            </>
+            <>
+              <Header as='h3'>
+                Grant Queue
+              </Header>
+                <div style={{ margin: "20px" }}>
+                  <Table celled padded>
+                    <Table.Header>
+                      <Table.Row>
+                        <Table.HeaderCell singleLine>MH</Table.HeaderCell>
+                        <Table.HeaderCell>Proxy</Table.HeaderCell>
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                    {proxyGrantQueue.map(req => (
+                        <Table.Row key={req.id}>
+                          <Table.Cell>
+                            {req.h}
+                          </Table.Cell>
+                          <Table.Cell singleLine>{req.proxy}</Table.Cell>
+                        </Table.Row>
+                      ))}
+                    </Table.Body>
+                  </Table>
+                </div>
+            </>
+          </div>
+        </div>
           </div>}
       </div>
     </div>
