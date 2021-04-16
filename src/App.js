@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Header, Label, Button, Table } from 'semantic-ui-react';
+import { Header, Label, Button } from 'semantic-ui-react';
 import Select from 'react-select';
-import { filter, findIndex, cloneDeep } from 'lodash';
-import ReactDataGrid from 'react-data-grid';
+import { filter, findIndex, cloneDeep, groupBy, sortBy } from 'lodash';
+import Table from './Table';
 import 'semantic-ui-css/semantic.min.css';
 import './App.scss';
 
 const TIMER = 3000;
+
+const MH_LENGTH = 6;
 
 function App() {
   const [spaceAvailable, setSpaceAvailable] = useState({
@@ -18,7 +20,8 @@ function App() {
     value: '',
   });
   const [rwr, setRWRs] = useState([]);
-  const [replicas, setReplicas] = useState({});
+  const [esaf, setESAF] = useState({});
+  const initialTableData = Object.values(groupBy(rwr, 'dataItemName'));
 
   const getAllSpaceAvailableOptions = (startAt = 2) => {
     const options = [];
@@ -34,7 +37,7 @@ function App() {
 
   const createMobileHostsAndDataItemsByReads = (numberOfDataItems) => {
     const hosts = {};
-    for (let i = 1; i <= 6; i += 1) {
+    for (let i = 1; i <= MH_LENGTH; i += 1) {
       const hostName = `M${i}`;
       hosts[hostName] = {};
       for (let j = 1; j <= numberOfDataItems; j += 1) {
@@ -59,7 +62,7 @@ function App() {
   };
 
   const getRWR = (reads, writes, numberOfDataItems) => {
-    console.log({ reads, writes });
+    // console.log({ reads, writes });
     const rwrs = [];
     for (let i = 1; i <= 6; i += 1) {
       const hostName = `M${i}`;
@@ -95,6 +98,50 @@ function App() {
     setRWRs(rwr);
   };
 
+  const showESAF = () => {
+    // console.log({ rwr, initialTableData });
+    const sortedRWRs = sortBy(rwr, [(i) => Number(i.rwr)]).reverse();
+    const esaf = groupBy(sortedRWRs, 'hostName');
+    const esafSorted = {};
+    for (let i = 1; i <= MH_LENGTH; i += 1) {
+      const hostName = `M${i}`;
+      const dataItemName = `D${i}`;
+      const ownDataItem = filter(esaf[hostName], { dataItemName });
+      const otherDataItems = esaf[hostName].filter(
+        (item) => item.dataItemName !== dataItemName
+      );
+      esafSorted[hostName] = [...ownDataItem, ...otherDataItems];
+    }
+    setESAF(esafSorted);
+    console.log({ esafSorted });
+    // setESAF(Object.values(groupBy(sortedRWRs, 'dataItemName')));
+  };
+
+  const getESAFColumns = () => {
+    const columns = [];
+    for (let i = 1; i <= MH_LENGTH; i += 1) {
+      const hostName = `M${i}`;
+      columns.push({ hostName });
+    }
+    return columns;
+  };
+
+  const getESAFRows = () => {
+    const rows = [];
+    for (let i = 0; i < MH_LENGTH; i += 1) {
+      const row = [];
+      for (let j = 0; j < MH_LENGTH; j += 1) {
+        const hostName = `M${j + 1}`;
+        // const temp = esaf[hostName];
+        // console.log(temp);
+        row.push(esaf[hostName][i]);
+      }
+      rows.push(row);
+    }
+    // console.log(rows);
+    return rows;
+  };
+
   return (
     <div className="App">
       <div
@@ -126,28 +173,52 @@ function App() {
             />
           </div>
           <div className="select-cache cache-buttons">
-            <Button primary onClick={startReplication}>
-              Start Replication
+            <Button style={{ width: '60%' }} primary onClick={startReplication}>
+              Show RWRs
+            </Button>
+          </div>
+          <div className="select-cache cache-buttons">
+            <Button style={{ width: '60%' }} secondary onClick={showESAF}>
+              Show E-SAF+
+            </Button>
+          </div>
+          <div className="select-cache cache-buttons">
+            <Button
+              style={{ width: '60%' }}
+              color="violet"
+              onClick={console.log}
+            >
+              Show E-DAFN+
+            </Button>
+          </div>
+          <div className="select-cache cache-buttons">
+            <Button
+              style={{ width: '60%' }}
+              color="green"
+              onClick={console.log}
+            >
+              Show E-DCG+
             </Button>
           </div>
         </div>
-        <div style={{ display: 'flex' }}>
-          <div id="treeWrapper" style={{ marginLeft: '15px' }}>
-            {rwr.length > 0 && (
-              <ReactDataGrid
-                columns={[
-                  { key: 'hostName', name: 'Host' },
-                  { key: 'dataItemName', name: 'Data Item' },
-                  { key: 'rwr', name: 'RWR' },
-                ]}
-                // rowGetter={(i) => rwr[i]}
-                rows={rwr}
-                rowsCount={rwr.length}
-                minHeight={150}
-              />
+        <div>
+          <div style={{ display: 'flex', marginBottom: 15 }}>
+            {initialTableData.length > 0 && (
+              <div id="treeWrapper" style={{ marginLeft: '15px' }}>
+                <h3>RWR values</h3>
+                <Table rows={initialTableData} columns={initialTableData[0]} />
+              </div>
             )}
           </div>
-          <div className="local-queues" style={{ width: '30%' }}></div>
+
+          <div style={{ display: 'flex', marginBottom: 15 }}>
+            {Object.values(esaf).length > 0 && (
+              <div id="treeWrapper" style={{ marginLeft: '15px' }}>
+                <h3>Data Items with Ordered RWR</h3>
+                <Table rows={getESAFRows()} columns={getESAFColumns()} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
