@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Header, Label, Button } from 'semantic-ui-react';
+import { Header, Button } from 'semantic-ui-react';
 import Select from 'react-select';
-import { filter, findIndex, cloneDeep, groupBy, sortBy } from 'lodash';
+import { filter, findIndex, groupBy, sortBy } from 'lodash';
+import Graph from 'react-graph-vis';
 import Table from './Table';
 import 'semantic-ui-css/semantic.min.css';
 import './App.scss';
@@ -12,20 +13,65 @@ const MH_LENGTH = 6;
 
 function App() {
   const [spaceAvailable, setSpaceAvailable] = useState({
-    label: '',
-    value: '',
+    label: 2,
+    value: 2,
   });
   const [numberOfDataItems, setNumberOfDataItems] = useState({
-    label: '',
-    value: '',
+    label: 6,
+    value: 6,
   });
   const [rwr, setRWRs] = useState([]);
   const [esaf, setESAF] = useState({});
   const initialTableData = Object.values(groupBy(rwr, 'dataItemName'));
+  const graph = {
+    nodes: [
+      { id: 1, label: 'M1', title: 'M1' },
+      { id: 2, label: 'M2', title: 'M2' },
+      { id: 3, label: 'M3', title: 'M3' },
+      { id: 4, label: 'M4', title: 'M4' },
+      { id: 5, label: 'M5', title: 'M5' },
+      { id: 6, label: 'M6', title: 'M6' },
+    ],
+    edges: [
+      { from: 1, to: 2 },
+      { from: 1, to: 3 },
+      { from: 2, to: 1 },
+      { from: 2, to: 4 },
+      { from: 3, to: 1 },
+      { from: 3, to: 4 },
+      { from: 4, to: 2 },
+      { from: 4, to: 3 },
+      { from: 4, to: 5 },
+      { from: 4, to: 6 },
+      { from: 5, to: 4 },
+      { from: 5, to: 6 },
+      { from: 6, to: 4 },
+      { from: 6, to: 5 },
+    ],
+  };
+
+  const events = {
+    select: function (event) {
+      var { nodes, edges } = event;
+      // console.log({ nodes, edges });
+    },
+  };
+
+  const options = {
+    layout: {
+      hierarchical: false,
+    },
+    edges: {
+      color: '#000000',
+      arrows: { to: { enabled: false } },
+    },
+    // height: '500px',
+    width: '70%',
+  };
 
   const getAllSpaceAvailableOptions = (startAt = 2) => {
     const options = [];
-    for (let i = startAt; i <= 10; i += 1) {
+    for (let i = startAt; i <= 20; i += 1) {
       options.push({ label: i, value: i });
     }
     return options;
@@ -98,6 +144,19 @@ function App() {
     setRWRs(rwr);
   };
 
+  const resetState = () => {
+    setSpaceAvailable({
+      label: '',
+      value: '',
+    });
+    setNumberOfDataItems({
+      label: '',
+      value: '',
+    });
+    setRWRs([]);
+    setESAF({});
+  };
+
   const showESAF = () => {
     // console.log({ rwr, initialTableData });
     const sortedRWRs = sortBy(rwr, [(i) => Number(i.rwr)]).reverse();
@@ -128,18 +187,32 @@ function App() {
 
   const getESAFRows = () => {
     const rows = [];
-    for (let i = 0; i < MH_LENGTH; i += 1) {
+    for (let i = 0; i < numberOfDataItems.value; i += 1) {
       const row = [];
       for (let j = 0; j < MH_LENGTH; j += 1) {
         const hostName = `M${j + 1}`;
-        // const temp = esaf[hostName];
-        // console.log(temp);
         row.push(esaf[hostName][i]);
       }
       rows.push(row);
     }
-    // console.log(rows);
+    console.log('esfaRows', rows);
     return rows;
+  };
+
+  const getDAFNRows = () => {
+    const rows = {};
+    for (let i = 1; i <= MH_LENGTH; i += 1) {
+      const hostName = `M${i}`;
+      const connectedNodes = filter(graph.edges, { from: i }).map(
+        (edge) => `M${edge.to}`
+      );
+      rows[hostName] = connectedNodes;
+      for (let j = 0; j < connectedNodes.length; j += 1) {
+        const connectedNode = connectedNodes[j];
+      }
+    }
+    console.log('edfanRows', rows, esaf);
+    return [];
   };
 
   return (
@@ -152,12 +225,13 @@ function App() {
           style={{
             width: '20%',
             height: '100vh',
-            borderRight: '1px solid silver',
           }}
         >
           <Header as="h3">Dynamic Replica allocation</Header>
           <div className="select-cache">
-            <label style={{ fontSize: 16 }}>Space available at each node</label>
+            <label style={{ fontSize: 16 }}>
+              Space available at each node (including originals)
+            </label>
             <Select
               value={spaceAvailable}
               onChange={setSpaceAvailable}
@@ -165,16 +239,19 @@ function App() {
             />
           </div>
           <div className="select-cache">
-            <label style={{ fontSize: 16 }}>Number of data items</label>
+            <label style={{ fontSize: 16 }}>Number of data items (D)</label>
             <Select
               value={numberOfDataItems}
               onChange={setNumberOfDataItems}
-              options={getAllSpaceAvailableOptions(1)}
+              options={getAllSpaceAvailableOptions(6)}
             />
           </div>
           <div className="select-cache cache-buttons">
-            <Button style={{ width: '60%' }} primary onClick={startReplication}>
+            <Button style={{ width: '50%' }} primary onClick={startReplication}>
               Show RWRs
+            </Button>
+            <Button style={{ width: '50%' }} color="teal" onClick={resetState}>
+              Reset
             </Button>
           </div>
           <div className="select-cache cache-buttons">
@@ -201,7 +278,7 @@ function App() {
             </Button>
           </div>
         </div>
-        <div>
+        <div style={{ borderLeft: '1px solid silver' }}>
           <div style={{ display: 'flex', marginBottom: 15 }}>
             {initialTableData.length > 0 && (
               <div id="treeWrapper" style={{ marginLeft: '15px' }}>
@@ -217,6 +294,52 @@ function App() {
                 <h3>Data Items with Ordered RWR</h3>
                 <Table rows={getESAFRows()} columns={getESAFColumns()} />
               </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', marginBottom: 15 }}>
+            {Object.values(esaf).length > 0 && (
+              <>
+                <div
+                  id="treeWrapper"
+                  style={{ marginLeft: '15px', width: '100% !important' }}
+                >
+                  <h3>E-SAF+</h3>
+                  <Table
+                    rows={getESAFRows().slice(0, spaceAvailable.value)}
+                    columns={getESAFColumns()}
+                  />
+                </div>
+                <div style={{ width: '100% !important' }}>
+                  <Graph
+                    graph={graph}
+                    options={options}
+                    events={events}
+                    getNetwork={console.log}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          <div style={{ display: 'flex', marginBottom: 15 }}>
+            {Object.values(esaf).length > 0 && (
+              <>
+                <div
+                  id="treeWrapper"
+                  style={{ marginLeft: '15px', width: '100% !important' }}
+                >
+                  <h3>E-DAFN+</h3>
+                  <Table rows={getDAFNRows()} columns={getESAFColumns()} />
+                </div>
+                <div style={{ width: '100% !important' }}>
+                  <Graph
+                    graph={graph}
+                    options={options}
+                    events={events}
+                    getNetwork={console.log}
+                  />
+                </div>
+              </>
             )}
           </div>
         </div>
