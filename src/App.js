@@ -23,12 +23,12 @@ const MH_LENGTH = 6;
 
 function App() {
   const [spaceAvailable, setSpaceAvailable] = useState({
-    label: 2,
-    value: 2,
+    label: '',
+    value: '',
   });
   const [numberOfDataItems, setNumberOfDataItems] = useState({
-    label: 6,
-    value: 6,
+    label: '',
+    value: '',
   });
   const [reads, setReads] = useState([]);
   const [writes, setWrites] = useState({});
