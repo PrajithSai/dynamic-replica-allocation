@@ -34,6 +34,7 @@ function App() {
   const [writes, setWrites] = useState({});
   const [esaf, setEsaf] = useState({ indexes: [] });
   const [edafn, setEDAFN] = useState([]);
+  const [rwrByGroup, setRWRByGroup] = useState([[], []]);
   const graph = {
     nodes: [
       { id: 1, label: 'M1', title: 'M1' },
@@ -253,7 +254,7 @@ function App() {
         }
       }
     }
-    console.log({ intersections });
+    // console.log({ intersections });
     replaceDuplicates(intersections, rwrDataItems, rows);
   };
 
@@ -341,12 +342,80 @@ function App() {
           // }
         }
       }
-      row.dataItems = [row.dataItems[0], ...currentDataItems];
+      row.dataItems = [
+        row.dataItems[0],
+        ...currentDataItems,
+        ...row.dataItems.slice(endIndex + 1),
+      ];
       rows.push(row);
     }
     // console.log(rows);
     setEDAFN(rows);
   };
+
+  const showEDCG = () => {
+    // console.log(edafn);
+    const edafn = rwr;
+    const data = [[], []];
+    for (let i = 1; i <= numberOfDataItems.value; i += 1) {
+      const dataItem = `D${i}`;
+      const groupName = `G1`;
+      const temp = { groupName, name: dataItem, value: 0 };
+      if (edafn[0][dataItem]) {
+        temp.value += edafn[0][dataItem];
+      }
+      if (edafn[1][dataItem]) {
+        temp.value += edafn[1][dataItem];
+      }
+      if (edafn[2][dataItem]) {
+        temp.value += edafn[2][dataItem];
+      }
+      if (edafn[3][dataItem]) {
+        temp.value += edafn[3][dataItem];
+      }
+      temp.value = Number(temp.value.toFixed(2));
+      data[0].push(temp);
+      const temp2 = { groupName: 'G2', name: dataItem, value: 0 };
+      if (edafn[4][dataItem]) {
+        temp2.value += edafn[4][dataItem];
+      }
+      if (edafn[5][dataItem]) {
+        temp2.value += edafn[3][dataItem];
+      }
+      temp2.value = Number(temp2.value.toFixed(2));
+      data[1].push(temp2);
+    }
+    // console.log(data);
+    setRWRByGroup(data);
+  };
+
+  const getFilteredGroup1 = (data) => {
+    const newRows = [];
+    for (let i = 0; i < data.length; i += 1) {
+      const row = data[i];
+      if (row.name.split('')[1] > 4) {
+        newRows.push(row);
+      }
+    }
+    return newRows;
+  };
+
+  const getFilteredGroup2 = (data) => {
+    const newRows = [];
+    for (let i = 0; i < data.length; i += 1) {
+      const row = data[i];
+      if (row.name.split('')[1] <= 4) {
+        newRows.push(row);
+      }
+    }
+    return newRows;
+  };
+
+  const sortedGroup1 = sortBy(rwrByGroup[0], 'value').reverse();
+  const sortedGroup2 = sortBy(rwrByGroup[1], 'value').reverse();
+
+  const filteredGroup1 = getFilteredGroup1(sortedGroup1);
+  const filteredGroup2 = getFilteredGroup2(sortedGroup2);
 
   return (
     <div className="App">
@@ -401,15 +470,11 @@ function App() {
               Show E-DAFN+
             </Button>
           </div>
-          {/* <div className="select-cache cache-buttons">
-            <Button
-              style={{ width: '60%' }}
-              color="green"
-              onClick={console.log}
-            >
+          <div className="select-cache cache-buttons">
+            <Button style={{ width: '60%' }} color="green" onClick={showEDCG}>
               Show E-DCG+
             </Button>
-          </div> */}
+          </div>
         </div>
         <div style={{ borderLeft: '1px solid silver' }}>
           <div style={{ display: 'flex', marginBottom: 15 }}>
@@ -523,6 +588,8 @@ function App() {
                 </div>
               )}
             </div>
+          </div>
+          <div style={{ display: 'flex', marginBottom: 15 }}>
             <div style={{ marginLeft: '15px' }}>
               {edafn.length > 0 && (
                 <>
@@ -548,7 +615,7 @@ function App() {
                 </>
               )}
             </div>
-            {/* <div style={{ marginLeft: '15px' }}>
+            <div style={{ marginLeft: '15px' }}>
               {rwrOrdered.length > 0 && (
                 <div>
                   <Graph
@@ -559,11 +626,111 @@ function App() {
                   />
                 </div>
               )}
-            </div> */}
+            </div>
           </div>
-          {/* <div style={{ display: 'flex', marginBottom: 15 }}>
+          <h3 style={{ marginLeft: '15px' }}>E-DCG+</h3>
+          <div style={{ display: 'flex', marginBottom: 15 }}>
             <div style={{ marginLeft: '15px' }}>
-              {edafn.length > 0 && (
+              {rwrByGroup[0].length > 0 && (
+                <>
+                  <h3>Group 1</h3>
+                  <ReactDataGrid
+                    columns={Object.keys(rwrByGroup[0][0]).map((val) => ({
+                      key: val,
+                      name: startCase(val),
+                    }))}
+                    rowGetter={(i) => rwrByGroup[0][i]}
+                    rowsCount={rwrByGroup[0].length}
+                    rows={rwrByGroup[0]}
+                  />
+                </>
+              )}
+            </div>
+            <div style={{ marginLeft: '15px' }}>
+              {rwrByGroup[1].length > 0 && (
+                <>
+                  <h3>Group 2</h3>
+                  <ReactDataGrid
+                    columns={Object.keys(rwrByGroup[1][0]).map((val) => ({
+                      key: val,
+                      name: startCase(val),
+                    }))}
+                    rowGetter={(i) => rwrByGroup[1][i]}
+                    rowsCount={rwrByGroup[1].length}
+                    rows={rwrByGroup[1]}
+                  />
+                </>
+              )}
+            </div>
+            <div style={{ marginLeft: '15px' }}>
+              {rwrByGroup[0].length > 0 && (
+                <>
+                  <h3>Group 1 with RWR Ordered</h3>
+                  <ReactDataGrid
+                    columns={Object.keys(rwrByGroup[0][0]).map((val) => ({
+                      key: val,
+                      name: startCase(val),
+                    }))}
+                    rowGetter={(i) => rwrByGroup[0][i]}
+                    rowsCount={rwrByGroup[0].length}
+                    rows={sortedGroup1}
+                  />
+                </>
+              )}
+            </div>
+            <div style={{ marginLeft: '15px' }}>
+              {rwrByGroup[1].length > 0 && (
+                <>
+                  <h3>Group 2 with RWR Ordered</h3>
+                  <ReactDataGrid
+                    columns={Object.keys(rwrByGroup[1][0]).map((val) => ({
+                      key: val,
+                      name: startCase(val),
+                    }))}
+                    rowGetter={(i) => rwrByGroup[1][i]}
+                    rowsCount={rwrByGroup[1].length}
+                    rows={sortedGroup2}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', marginBottom: 15 }}>
+            <div style={{ marginLeft: '15px' }}>
+              {rwrByGroup[0].length > 0 && (
+                <>
+                  <h3>Group 1</h3>
+                  <ReactDataGrid
+                    columns={Object.keys(rwrByGroup[0][0]).map((val) => ({
+                      key: val,
+                      name: startCase(val),
+                    }))}
+                    rowGetter={(i) => filteredGroup1[0][i]}
+                    rowsCount={filteredGroup1[0].length}
+                    rows={filteredGroup1}
+                  />
+                </>
+              )}
+            </div>
+            <div style={{ marginLeft: '15px' }}>
+              {rwrByGroup[1].length > 0 && (
+                <>
+                  <h3>Group 2</h3>
+                  <ReactDataGrid
+                    columns={Object.keys(rwrByGroup[1][0]).map((val) => ({
+                      key: val,
+                      name: startCase(val),
+                    }))}
+                    rowGetter={(i) => filteredGroup2[1][i]}
+                    rowsCount={filteredGroup2[1].length}
+                    rows={filteredGroup2}
+                  />
+                </>
+              )}
+            </div>
+            <div style={{ marginLeft: '15px' }}>
+              {/* {edafn.length > 0 && (
                 <>
                   <h3>E-DAFN+</h3>
                   <Table celled padded>
@@ -576,28 +743,50 @@ function App() {
                           {rwr.dataItems
                             .slice(0, spaceAvailable.value)
                             .map((item) => (
-                              <Table.Cell>{`${item.name} = ${item.value}`}</Table.Cell>
+                              <Table.Cell>
+                                {item ? `${item.name} = ${item.value}` : ''}
+                              </Table.Cell>
                             ))}
                         </Table.Row>
                       ))}
                     </Table.Body>
                   </Table>
                 </>
-              )}
+              )} */}
             </div>
-            <div style={{ marginLeft: '15px' }}>
-              {rwrOrdered.length > 0 && (
-                <div>
-                  <Graph
-                    graph={graph}
-                    options={options}
-                    events={events}
-                    // getNetwork={console.log}
+            {/* <div style={{ marginLeft: '15px' }}>
+              {rwrByGroup[0].length > 0 && (
+                <>
+                  <h3>Group 1 Replica</h3>
+                  <ReactDataGrid
+                    columns={Object.keys(rwrByGroup[0][0]).map((val) => ({
+                      key: val,
+                      name: startCase(val),
+                    }))}
+                    rowGetter={(i) => filteredGroup1[0][i]}
+                    rowsCount={spaceAvailable.value}
+                    rows={filteredGroup1.slice(0, spaceAvailable.value)}
                   />
-                </div>
+                </>
               )}
-            </div>
-          </div> */}
+            </div> */}
+            {/* <div style={{ marginLeft: '15px' }}>
+              {rwrByGroup[1].length > 0 && (
+                <>
+                  <h3>Group 2 Replica</h3>
+                  <ReactDataGrid
+                    columns={Object.keys(rwrByGroup[1][0]).map((val) => ({
+                      key: val,
+                      name: startCase(val),
+                    }))}
+                    rowGetter={(i) => filteredGroup2[1][i]}
+                    rowsCount={spaceAvailable.value}
+                    rows={filteredGroup2.slice(0, spaceAvailable.value)}
+                  />
+                </>
+              )}
+            </div> */}
+          </div>
         </div>
       </div>
     </div>
